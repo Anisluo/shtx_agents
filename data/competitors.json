@@ -1,0 +1,168 @@
+[
+  {
+    "brand": "AMS / advanced monolithic",
+    "model": "AMS1117",
+    "aliases": ["AMS1117-3.3", "AMS1117-5.0", "AMS1117-ADJ", "LM1117", "SGM1117"],
+    "category": "电源管理芯片",
+    "description": "1A 低压差线性稳压器 LDO，固定/可调输出，SOT-223 封装",
+    "key_specs": {"输出电流": "1A", "压差": "~1.1V@1A", "输出电压": "固定(1.2/1.5/1.8/2.5/3.3/5.0)或ADJ", "封装": "SOT-223/TO-252"},
+    "tx_models": ["TX1117", "TX1117C"],
+    "datasheet_url": "",
+    "note": "pin-to-pin 兼容，可直接替代。"
+  },
+  {
+    "brand": "Texas Instruments / onsemi",
+    "model": "LM317",
+    "aliases": ["LM317T", "AMS317", "317"],
+    "category": "电源管理芯片",
+    "description": "可调三端线性稳压器，1.25~37V 可调，1.5A",
+    "key_specs": {"输出电压": "1.25~37V 可调", "输出电流": "1.5A", "封装": "TO-220/SOT-223"},
+    "tx_models": ["TX317"],
+    "datasheet_url": "https://www.ti.com/lit/ds/symlink/lm317.pdf",
+    "note": "可调三端稳压，功能等效替代。"
+  },
+  {
+    "brand": "Texas Instruments / ST",
+    "model": "TL431",
+    "aliases": ["TL431A", "TL432", "AZ431", "LM431"],
+    "category": "电源管理芯片",
+    "description": "可编程并联稳压/电压基准，2.5V，可调至 36V",
+    "key_specs": {"基准电压": "2.495V", "工作电流": "1~100mA", "精度": "0.5%/1%/2%", "封装": "SOT-23/TO-92/SOP-8"},
+    "tx_models": ["TX431"],
+    "datasheet_url": "https://www.ti.com/lit/ds/symlink/tl431.pdf",
+    "note": "pin-to-pin 兼容，可直接替代。"
+  },
+  {
+    "brand": "Torex",
+    "model": "XC6206",
+    "aliases": ["XC6206P332", "662K", "XC6206P"],
+    "category": "电源管理芯片",
+    "description": "超低功耗 LDO，SOT-23，输入≤6V，150~250mA",
+    "key_specs": {"输出电流": "150~250mA", "输入电压": "≤6V", "静态电流": "~1uA", "封装": "SOT-23-3"},
+    "tx_models": ["TX6206", "TX6216"],
+    "note": "pin-to-pin 兼容，SOT-23 低功耗 LDO 直接替代。"
+  },
+  {
+    "brand": "Texas Instruments / ST",
+    "model": "NE555",
+    "aliases": ["LM555", "SE555", "NE555P", "555"],
+    "category": "定时器芯片",
+    "description": "通用定时器，单稳/无稳态振荡",
+    "key_specs": {"工作电压": "4.5~16V", "封装": "DIP-8/SOP-8"},
+    "tx_models": ["TX555"],
+    "datasheet_url": "https://www.ti.com/lit/ds/symlink/ne555.pdf",
+    "note": "pin-to-pin 兼容，可直接替代。"
+  },
+  {
+    "brand": "Texas Instruments",
+    "model": "ULN2003",
+    "aliases": ["ULN2003A", "ULN2003AN", "MC1413"],
+    "category": "驱动芯片",
+    "description": "7 路达林顿晶体管阵列驱动",
+    "key_specs": {"通道数": "7路", "最大电压": "50V", "单路电流": "500mA", "封装": "DIP-16/SOP-16"},
+    "tx_models": ["TX2003", "TX2003HV"],
+    "datasheet_url": "https://www.ti.com/lit/ds/symlink/uln2003a.pdf",
+    "note": "pin-to-pin 兼容；TX2003HV 耐压提升至 80V。"
+  },
+  {
+    "brand": "Texas Instruments",
+    "model": "ULN2803",
+    "aliases": ["ULN2803A", "ULN2803AN"],
+    "category": "驱动芯片",
+    "description": "8 路达林顿晶体管阵列驱动",
+    "key_specs": {"通道数": "8路", "最大电压": "50V", "单路电流": "500mA", "封装": "DIP-18/SOP-18"},
+    "tx_models": ["TX2803"],
+    "datasheet_url": "https://www.ti.com/lit/ds/symlink/uln2803a.pdf",
+    "note": "pin-to-pin 兼容，可直接替代。"
+  },
+  {
+    "brand": "ST / onsemi",
+    "model": "78L05",
+    "aliases": ["L78L05", "MC78L05", "78L33", "78L08", "78L12", "78LXX"],
+    "category": "电源管理芯片",
+    "description": "100mA 正电压三端线性稳压器系列",
+    "key_specs": {"输出电流": "100mA", "极限输入": "≤30V", "封装": "TO-92/SOT-89/SOT-23"},
+    "tx_models": ["TX78L05", "TX78LXX-AV"],
+    "note": "pin-to-pin 兼容，78Lxx 系列整体替代。"
+  },
+  {
+    "brand": "ST / onsemi",
+    "model": "78M05",
+    "aliases": ["L78M05", "MC78M05", "78MXX"],
+    "category": "电源管理芯片",
+    "description": "500mA 正电压三端线性稳压器系列",
+    "key_specs": {"输出电流": "500mA", "封装": "TO-252/SOT-223/TO-220"},
+    "tx_models": ["TX78M05", "TX78M05E"],
+    "note": "pin-to-pin 兼容替代。"
+  },
+  {
+    "brand": "ST / onsemi / TI",
+    "model": "7805",
+    "aliases": ["L7805", "LM7805", "MC7805", "78XX", "7812", "7809", "7815"],
+    "category": "电源管理芯片",
+    "description": "1A 正电压三端线性稳压器系列",
+    "key_specs": {"输出电流": "1A", "封装": "TO-220/TO-252"},
+    "tx_models": ["TX78XX"],
+    "note": "功能等效替代，TX78XX 输出 5~24V、1A。"
+  },
+  {
+    "brand": "ST / onsemi",
+    "model": "79L05",
+    "aliases": ["L79L05", "MC79L05", "79LXX"],
+    "category": "电源管理芯片",
+    "description": "负电压三端线性稳压器系列",
+    "key_specs": {"输出电流": "150mA", "输出电压": "-5 ~ -15V", "封装": "SOT-89/TO-92"},
+    "tx_models": ["TX79LXX"],
+    "note": "pin-to-pin 兼容替代。"
+  },
+  {
+    "brand": "Maxim / Analog Devices",
+    "model": "MAX485",
+    "aliases": ["MAX485E", "MAX487", "SN65HVD", "SP485"],
+    "category": "通信协议芯片",
+    "description": "RS-485/RS-422 收发器，5V 供电，半双工",
+    "key_specs": {"工作电压": "5V", "速率": "2.5Mbps", "通信方式": "半双工", "封装": "DIP-8/SOP-8"},
+    "tx_models": ["TX2485"],
+    "note": "pin-to-pin 兼容，5V RS-485 收发器替代。"
+  },
+  {
+    "brand": "Sipex / MaxLinear / Maxim",
+    "model": "SP3485",
+    "aliases": ["MAX3485", "SP3485EN", "MAX3485E"],
+    "category": "通信协议芯片",
+    "description": "3.3V RS-485/RS-422 收发器，半双工",
+    "key_specs": {"工作电压": "3.0~5.5V", "速率": "10Mbps", "通信方式": "半双工", "封装": "SOP-8"},
+    "tx_models": ["TX2485B"],
+    "note": "pin-to-pin 兼容，3.3V RS-485 收发器替代。"
+  },
+  {
+    "brand": "Allegro / Diodes",
+    "model": "A3144",
+    "aliases": ["AH3144", "A3144E", "OH3144", "US3144"],
+    "category": "霍尔传感器芯片",
+    "description": "单极型霍尔开关，开漏输出",
+    "key_specs": {"工作电压": "4.5~24V", "输出": "OD 开漏", "封装": "TO-92S/SOT-23"},
+    "tx_models": ["TX3144", "TX5181"],
+    "note": "pin-to-pin 兼容，单极霍尔开关替代。"
+  },
+  {
+    "brand": "TPower / Linear(ADI)",
+    "model": "TP4054",
+    "aliases": ["LTC4054", "TP4056", "LTH7", "TP4055"],
+    "category": "电源管理芯片",
+    "description": "单节锂电池恒流/恒压线性充电管理芯片，4.2V",
+    "key_specs": {"充电电压": "4.2V", "充电电流": "可编程 ~500mA/800mA", "封装": "SOT-23-5/ESOP-8"},
+    "tx_models": ["TX4054"],
+    "note": "单节锂电充电管理，功能等效替代。"
+  },
+  {
+    "brand": "Maxim / Analog Devices",
+    "model": "MAX809",
+    "aliases": ["MAX810", "MAX811", "MAX803", "MAX6326"],
+    "category": "电源管理芯片",
+    "description": "微功耗电压监控/复位芯片（上电复位 Reset）",
+    "key_specs": {"复位门限": "2.32/2.63/2.93/4.38V 等", "封装": "SOT-23-3/SC70"},
+    "tx_models": ["TX809", "TX810", "TX803"],
+    "note": "命名与门限对标 MAX80x，复位芯片直接替代。"
+  }
+]

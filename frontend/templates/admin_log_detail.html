@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ c.title }} · 对话日志{% endblock %}
+{% block topbar %}<a href="{{ url_for('admin_logs') }}">对话日志</a> / {{ c.title }}{% endblock %}
+{% block content %}
+<div class="page"><div class="page-inner" style="max-width:860px">
+  <h1>{{ c.title }}</h1>
+  <p class="muted">用户：{{ c.name }}（{{ c.username }}）· 创建于 {{ c.created_at }} · 更新于 {{ c.updated_at }}</p>
+  <div class="panel">
+    {% for m in c.messages %}
+      <div class="log-msg">
+        <div class="who">{{ '👤 用户' if m.role == 'user' else '🤖 AI 助手' }} · {{ m.created_at }}
+          {% if m.meta.elapsed %} · 用时 {{ '%.1f'|format(m.meta.elapsed) }} 秒{% endif %}</div>
+        {% if m.meta.steps %}
+          <div class="steps">{% for s in m.meta.steps %}<div class="step done"><span class="dot"></span><span>{{ s.tool }} {{ s.args|tojson }} — {{ s.summary }}</span></div>{% endfor %}</div>
+        {% endif %}
+        <div class="md" data-md="{{ m.content }}">{{ m.content }}</div>
+      </div>
+    {% endfor %}
+  </div>
+</div></div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/marked.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/purify.min.js') }}"></script>
+<script>
+  document.querySelectorAll('[data-md]').forEach(el => {
+    el.innerHTML = DOMPurify.sanitize(marked.parse(el.dataset.md, { gfm: true, breaks: true }));
+  });
+</script>
+{% endblock %}

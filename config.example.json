@@ -1,0 +1,37 @@
+{
+  // ====== 太矽产品选型助手 配置文件模板（复制为 config.json 后填写）======
+
+  "glm": {
+    // 在这里填入你的智谱 GLM API Key（https://open.bigmodel.cn 控制台获取）
+    // 注意：使用 GLM Coding Plan 的 Key 时，chat_path 需用下面的 coding 接口
+    "api_key": "YOUR_GLM_API_KEY_HERE",
+    "model": "glm-5.3",
+    "base_url": "https://open.bigmodel.cn",
+    "chat_path": "/api/coding/paas/v4/chat/completions",
+    "temperature": 0.3,
+    "max_tokens": 4096,
+    "timeout_sec": 180,
+    "thinking": false,
+    // 推理强度：留空用模型默认；部分推理模型不支持关闭思考，可填 "low"/"high"/"max"
+    "reasoning_effort": "low"
+  },
+
+  // C++ 后端（REST API），仅供前端调用，默认只监听本机
+  "backend": {
+    "host": "127.0.0.1",
+    "port": 8080,
+    "db_path": "data/shtx.db",
+    "datasheet_dir": "datasheets",
+    "log_dir": "logs",
+    "history_messages": 20
+  },
+
+  // Python 前端（浏览器访问的 Web 服务）
+  "frontend": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "backend_url": "http://127.0.0.1:8080",
+    // 部署时请改成随机字符串
+    "secret_key": "change-me-to-a-random-string"
+  }
+}

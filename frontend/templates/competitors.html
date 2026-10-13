@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}竞品库 / 国产替代 · 太矽产品选型助手{% endblock %}
+{% block topbar %}竞品库 / 国产替代{% endblock %}
+{% block content %}
+<div class="page"><div class="page-inner">
+  <h1>竞品库 · 国产替代交叉对照</h1>
+  <p class="muted">输入其它厂商型号或标准料号（如 AMS1117、LM317、NE555、ULN2003、MAX485、A3144…），查看太矽电子对应的替代型号。</p>
+  <form class="toolbar" method="get">
+    <input type="search" name="q" value="{{ q }}" placeholder="竞品型号 / 品牌 / 别名，如 AMS1117、TL431、MAX485" style="flex:1;min-width:260px">
+    <button class="btn primary" type="submit">查询替代</button>
+    {% if q %}<a class="btn" href="{{ url_for('competitors') }}">清除</a>{% endif %}
+  </form>
+  <p class="muted small">共 {{ items|length }} 条对照</p>
+
+  <div class="table-wrap panel" style="padding:6px 10px">
+    <table class="data">
+      <thead><tr><th>竞品型号</th><th>原厂</th><th>类别 / 功能</th><th>数据手册</th><th>太矽替代型号</th><th>替代说明</th></tr></thead>
+      <tbody>
+      {% for c in items %}
+        {% set ds = c.datasheet_url if c.datasheet_url else c.datasheet_search %}
+        <tr>
+          <td>
+            <a href="{{ ds }}" target="_blank" rel="noopener" style="font-weight:600" title="打开 {{ c.model }} 数据手册">{{ c.model }}</a>
+            {% if c.aliases %}<div class="muted small">{{ c.aliases }}</div>{% endif %}
+          </td>
+          <td class="muted small">{{ c.brand }}</td>
+          <td>
+            <div>{{ c.description }}</div>
+            <div class="muted small">{{ c.category }}</div>
+          </td>
+          <td class="small" style="white-space:nowrap">
+            {% if c.datasheet_url %}<a href="{{ c.datasheet_url }}" target="_blank" rel="noopener">📄 官方手册</a><br>{% endif %}
+            <a href="{{ c.datasheet_search }}" target="_blank" rel="noopener" class="muted">🔍 搜索数据手册</a>
+          </td>
+          <td>
+            {% for r in c.replacements %}
+              <a class="tag admin" style="margin:2px 2px;display:inline-block" href="{{ url_for('product_detail', model=r.model) }}">{{ r.model }}</a>
+            {% endfor %}
+          </td>
+          <td class="muted small">{{ c.note }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="muted">没有匹配的竞品，试试其它型号，或在对话中直接询问「XXX 有没有国产替代」。</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted small">⚠️ 以上为参考交叉对照（依据行业通用标准料号的引脚/功能兼容关系整理），具体参数与可替代性请以数据手册及太矽 FAE 确认为准。</p>
+</div></div>
+{% endblock %}

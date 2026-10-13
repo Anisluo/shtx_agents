@@ -1,0 +1,18 @@
+﻿{% extends "base.html" %}
+{% block title %}登录 · 太矽产品选型助手{% endblock %}
+{% block body_class %}auth-body{% endblock %}
+{% block body %}
+<div class="auth-card">
+  <div class="brand-mark">TX</div>
+  <h1>太矽产品选型助手</h1>
+  <p>上海太矽电子科技 · 智能产品推荐系统</p>
+  <form class="auth-form" method="post">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, m in msgs %}<div class="auth-error">{{ m }}</div>{% endfor %}
+    {% endwith %}
+    <input type="text" name="username" placeholder="用户名" value="{{ username or '' }}" autocomplete="username" required autofocus>
+    <input type="password" name="password" placeholder="密码" autocomplete="current-password" required>
+    <button class="btn primary" type="submit">登录</button>
+  </form>
+</div>
+{% endblock %}

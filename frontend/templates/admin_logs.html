@@ -1,0 +1,39 @@
+﻿{% extends "base.html" %}
+{% block title %}对话日志 · 太矽产品选型助手{% endblock %}
+{% block topbar %}对话日志{% endblock %}
+{% block content %}
+<div class="page"><div class="page-inner">
+  <h1>对话日志</h1>
+  <div class="stats">
+    <div class="stat"><span class="muted small">用户数</span><b>{{ stats.users }}</b></div>
+    <div class="stat"><span class="muted small">对话数</span><b>{{ stats.conversations }}</b></div>
+    <div class="stat"><span class="muted small">提问数</span><b>{{ stats.questions }}</b></div>
+    <div class="stat"><span class="muted small">产品型号</span><b>{{ stats.products }}</b></div>
+  </div>
+  <form class="toolbar" method="get">
+    <input type="search" name="user" value="{{ user }}" placeholder="用户名 / 姓名">
+    <input type="search" name="q" value="{{ q }}" placeholder="对话内容关键词" style="flex:1;min-width:200px">
+    <button class="btn primary" type="submit">筛选</button>
+    {% if q or user %}<a class="btn" href="{{ url_for('admin_logs') }}">清除</a>{% endif %}
+  </form>
+  <div class="panel table-wrap" style="padding:6px 10px">
+    <table class="data">
+      <thead><tr><th>时间</th><th>用户</th><th>部门</th><th>对话标题</th><th>消息数</th><th></th></tr></thead>
+      <tbody>
+      {% for c in convs %}
+        <tr>
+          <td class="muted small" style="white-space:nowrap">{{ c.updated_at }}</td>
+          <td>{{ c.name }} <span class="muted small">{{ c.username }}</span></td>
+          <td>{{ c.dept }}</td>
+          <td>{{ c.title }}</td>
+          <td>{{ c.message_count }}</td>
+          <td><a href="{{ url_for('admin_log_detail', cid=c.id) }}">查看</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="muted">暂无对话记录</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div></div>
+{% endblock %}

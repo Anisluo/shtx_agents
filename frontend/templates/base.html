@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}太矽产品选型助手{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+{% block body %}
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-top">
+      <a class="brand" href="{{ url_for('chat') }}">
+        <span class="brand-mark">TX</span><span>太矽产品选型助手</span>
+      </a>
+      <button class="icon-btn sb-close" onclick="document.body.classList.remove('sb-open')" aria-label="收起">✕</button>
+    </div>
+    <a class="new-chat" href="{{ url_for('chat') }}"><span class="plus">＋</span> 新对话</a>
+    <nav class="sb-nav">
+      <a href="{{ url_for('products') }}" class="{{ 'active' if request.endpoint in ('products','product_detail') }}">▦ 产品库</a>
+      <a href="{{ url_for('competitors') }}" class="{{ 'active' if request.endpoint == 'competitors' }}">⇄ 竞品库 / 国产替代</a>
+      {% if me and me.role in ('admin','manager') %}
+      <a href="{{ url_for('admin_logs') }}" class="{{ 'active' if request.endpoint in ('admin_logs','admin_log_detail') }}">☰ 对话日志</a>
+      {% endif %}
+      {% if me and me.role == 'admin' %}
+      <a href="{{ url_for('admin_users') }}" class="{{ 'active' if request.endpoint == 'admin_users' }}">◎ 用户管理</a>
+      {% endif %}
+    </nav>
+    <div class="sb-section-title">最近对话</div>
+    <div class="conv-list" id="convList"><div class="muted small pad">加载中…</div></div>
+    <div class="sb-user">
+      <div class="avatar">{{ (me.name or me.username)[:1] if me else '?' }}</div>
+      <div class="sb-user-info">
+        <div class="sb-user-name">{{ me.name or me.username }}</div>
+        <div class="muted small">{{ me.dept }} · {{ role_names.get(me.role, me.role) }}</div>
+      </div>
+      <div class="menu-wrap">
+        <button class="icon-btn" onclick="this.nextElementSibling.classList.toggle('show')" aria-label="菜单">⋯</button>
+        <div class="menu">
+          <a href="{{ url_for('profile') }}">修改密码</a>
+          <form method="post" action="{{ url_for('logout') }}"><button type="submit">退出登录</button></form>
+        </div>
+      </div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn sb-toggle" onclick="document.body.classList.add('sb-open')" aria-label="菜单">☰</button>
+      <div class="topbar-title">{% block topbar %}{% endblock %}</div>
+    </header>
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% if msgs %}<div class="flashes">{% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}</div>{% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script>window.CURRENT_CID = {{ (cid or 'null') if cid is defined else 'null' }};</script>
+<script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+{% endblock %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,26 @@
+﻿{% extends "base.html" %}
+{% block title %}修改密码 · 太矽产品选型助手{% endblock %}
+{% block topbar %}账户{% endblock %}
+{% block content %}
+<div class="page"><div class="page-inner" style="max-width:560px">
+  <h1>账户信息</h1>
+  <div class="panel">
+    <table class="spec-table">
+      <tr><th>用户名</th><td>{{ me.username }}</td></tr>
+      <tr><th>姓名</th><td>{{ me.name }}</td></tr>
+      <tr><th>部门</th><td>{{ me.dept }}</td></tr>
+      <tr><th>角色</th><td>{{ role_names.get(me.role, me.role) }}</td></tr>
+    </table>
+  </div>
+  <div class="panel">
+    <h3 style="margin-top:0">修改密码</h3>
+    <form method="post" class="auth-form">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <input type="password" name="old_password" placeholder="原密码" required autocomplete="current-password">
+      <input type="password" name="new_password" placeholder="新密码（至少 6 位）" required minlength="6" autocomplete="new-password">
+      <input type="password" name="confirm_password" placeholder="确认新密码" required minlength="6" autocomplete="new-password">
+      <button class="btn primary" type="submit">保存</button>
+    </form>
+  </div>
+</div></div>
+{% endblock %}

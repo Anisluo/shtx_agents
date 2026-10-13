@@ -1,0 +1,26 @@
+# ===== 敏感信息（禁止上传）=====
+# config.json 含 GLM API Key，请用 config.example.json 为模板自行创建
+config.json
+# 用户账号表（明文密码）
+data_info_with_password.xlsx
+# SQLite 库内含用户账号（口令哈希）
+data/shtx.db
+data/shtx.db-wal
+data/shtx.db-shm
+
+# ===== 运行产物 =====
+logs/
+backend/build/
+backend/build-linux/
+__pycache__/
+*.pyc
+*.out
+*.o
+*.obj
+
+# ===== 本地 / IDE / 虚拟环境 =====
+.claude/
+.venv/
+venv/
+.vscode/
+.idea/

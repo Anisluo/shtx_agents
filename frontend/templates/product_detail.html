@@ -1,0 +1,35 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ p.model }} · 太矽产品选型助手{% endblock %}
+{% block topbar %}<a href="{{ url_for('products') }}">产品库</a> / {{ p.model }}{% endblock %}
+{% block content %}
+{%- set ask -%}
+我正在考虑太矽 {{ p.model }}（{{ p.title }}），关键参数：{% for k, v in p.key_specs.items() %}{% if '极限参数' not in k and '版本' not in k %}{{ k }}={{ v }}；{% endif %}{% endfor %}{% if p.packages %}封装={{ p.packages }}；{% endif %}请介绍它的特性与典型应用，并帮我判断它适合哪些使用场景；如果有更合适的太矽型号也请一并推荐。
+{%- endset -%}
+<div class="page"><div class="page-inner">
+  <h1>{{ p.model }} <span class="muted" style="font-size:16px">{{ p.title }}</span></h1>
+  <div class="toolbar">
+    <span class="tag">{{ p.category }}</span><span class="tag">{{ p.series }}</span>
+    {% if p.datasheet %}<a class="btn primary sm" href="{{ url_for('datasheet', name=p.datasheet) }}" target="_blank">查看数据手册 PDF</a>{% endif %}
+    <a class="btn sm" href="{{ url_for('chat', ask=ask) }}">咨询产品选型助手</a>
+  </div>
+  <div class="panel">
+    <h3 style="margin-top:0">关键参数</h3>
+    <table class="spec-table">
+      {% for k, v in p.key_specs.items() %}<tr><th>{{ k }}</th><td>{{ v }}</td></tr>{% endfor %}
+      {% if p.packages %}<tr><th>封装（汇总）</th><td>{{ p.packages }}</td></tr>{% endif %}
+    </table>
+  </div>
+  {% if p.replaces %}
+  <div class="panel">
+    <h3 style="margin-top:0">可替代竞品（国产替代）</h3>
+    <div class="cat-pills">
+      {% for c in p.replaces %}<span class="tag" title="{{ c.note }}">{{ c.brand }} {{ c.model }}</span>{% endfor %}
+    </div>
+    <p class="muted small">以上为参考交叉对照，最终请以数据手册及太矽 FAE 确认为准。可在 <a href="{{ url_for('competitors') }}">竞品库</a> 查看完整对照。</p>
+  </div>
+  {% endif %}
+  {% if p.description %}<div class="panel"><h3 style="margin-top:0">概述</h3><p>{{ p.description }}</p></div>{% endif %}
+  {% if p.features %}<div class="panel"><h3 style="margin-top:0">特性</h3><ul>{% for f in p.features.split('\n') %}<li>{{ f }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if p.applications %}<div class="panel"><h3 style="margin-top:0">应用</h3><ul>{% for f in p.applications.split('\n') %}<li>{{ f }}</li>{% endfor %}</ul></div>{% endif %}
+</div></div>
+{% endblock %}

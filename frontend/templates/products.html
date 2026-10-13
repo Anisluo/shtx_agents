@@ -1,0 +1,37 @@
+﻿{% extends "base.html" %}
+{% block title %}产品库 · 太矽产品选型助手{% endblock %}
+{% block topbar %}产品库{% endblock %}
+{% block content %}
+<div class="page"><div class="page-inner">
+  <h1>太矽电子产品库</h1>
+  <form class="toolbar" method="get">
+    <input type="search" name="q" value="{{ q }}" placeholder="型号 / 关键词，空格分隔，如：LDO 低功耗 SOT23" style="flex:1;min-width:240px">
+    {% if category %}<input type="hidden" name="category" value="{{ category }}">{% endif %}
+    <button class="btn primary" type="submit">搜索</button>
+    {% if q or category %}<a class="btn" href="{{ url_for('products') }}">清除</a>{% endif %}
+  </form>
+  <div class="cat-pills">
+    <a href="{{ url_for('products', q=q) }}" class="{{ 'active' if not category }}">全部</a>
+    {% for c in cats %}
+      <a href="{{ url_for('products', category=c.category, q=q) }}" class="{{ 'active' if category == c.category }}">{{ c.category }} <span class="muted">{{ c.count }}</span></a>
+    {% endfor %}
+  </div>
+  <p class="muted small">共 {{ items|length }} 个型号</p>
+  <div class="prod-grid">
+    {% for p in items %}
+    <div class="card">
+      <a class="card-model" href="{{ url_for('product_detail', model=p.model) }}">{{ p.model }}</a>
+      <div class="card-sub">{{ p.series }}</div>
+      <div>{{ p.title }}</div>
+      {% if p.packages %}<div class="card-sub">封装：{{ p.packages }}</div>{% endif %}
+      <div class="card-links">
+        <a href="{{ url_for('product_detail', model=p.model) }}">详情</a>
+        {% if p.datasheet %}<a href="{{ url_for('datasheet', name=p.datasheet) }}" target="_blank">数据手册</a>{% endif %}
+      </div>
+    </div>
+    {% else %}
+    <p class="muted">没有找到匹配的型号。</p>
+    {% endfor %}
+  </div>
+</div></div>
+{% endblock %}

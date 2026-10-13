@@ -1,0 +1,9 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ code }} · 太矽产品选型助手{% endblock %}
+{% block content %}
+<div class="page"><div class="welcome">
+  <h1>{{ code }}</h1>
+  <p>{{ msg }}</p>
+  <a class="btn" href="{{ url_for('chat') }}">返回首页</a>
+</div></div>
+{% endblock %}

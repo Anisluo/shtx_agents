@@ -1,0 +1,65 @@
+﻿{% extends "base.html" %}
+{% block title %}用户管理 · 太矽产品选型助手{% endblock %}
+{% block topbar %}用户管理{% endblock %}
+{% block content %}
+<div class="page"><div class="page-inner">
+  <h1>用户管理 <span class="muted" style="font-size:15px">共 {{ users|length }} 人</span></h1>
+
+  <details class="panel">
+    <summary style="cursor:pointer;font-weight:500">＋ 新增用户</summary>
+    <form method="post" class="form-grid" style="margin-top:14px">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="create">
+      <label>用户名<input type="text" name="username" required></label>
+      <label>初始密码<input type="password" name="password" required minlength="6" autocomplete="new-password"></label>
+      <label>姓名<input type="text" name="name"></label>
+      <label>部门<input type="text" name="dept"></label>
+      <label>角色<select name="role">{% for k, v in role_names.items() %}<option value="{{ k }}" {{ 'selected' if k == 'user' }}>{{ v }}</option>{% endfor %}</select></label>
+      <button class="btn primary" type="submit">创建</button>
+    </form>
+  </details>
+
+  <div class="panel table-wrap" style="padding:6px 10px">
+    <table class="data">
+      <thead><tr><th>#</th><th>用户名</th><th>姓名</th><th>部门</th><th>角色</th><th>状态</th><th>对话数</th><th>最近登录</th><th>操作</th></tr></thead>
+      <tbody>
+      {% for u in users %}
+        <tr>
+          <td class="muted">{{ u.id }}</td>
+          <td>{{ u.username }}</td>
+          <td>{{ u.name }}</td>
+          <td>{{ u.dept }}</td>
+          <td><span class="tag {{ u.role }}">{{ role_names.get(u.role, u.role) }}</span></td>
+          <td>{% if u.active %}<span class="tag">正常</span>{% else %}<span class="tag off">已停用</span>{% endif %}</td>
+          <td>{{ u.conversations }}</td>
+          <td class="muted small">{{ u.last_login or '—' }}</td>
+          <td style="white-space:nowrap">
+            <details class="inline-edit">
+              <summary>编辑</summary>
+              <form method="post" class="form-grid" style="min-width:520px;margin-top:8px">
+                <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="update"><input type="hidden" name="id" value="{{ u.id }}">
+                <label>姓名<input type="text" name="name" value="{{ u.name }}"></label>
+                <label>部门<input type="text" name="dept" value="{{ u.dept }}"></label>
+                <label>角色<select name="role">{% for k, v in role_names.items() %}<option value="{{ k }}" {{ 'selected' if k == u.role }}>{{ v }}</option>{% endfor %}</select></label>
+                <label>重置密码<input type="password" name="password" placeholder="留空则不修改" autocomplete="new-password"></label>
+                <button class="btn primary sm" type="submit">保存</button>
+              </form>
+              {% if u.id != me.id %}
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <form method="post"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ u.id }}">
+                  <button class="btn sm" name="action" value="{{ 'disable' if u.active else 'enable' }}">{{ '停用' if u.active else '启用' }}</button></form>
+                <form method="post" onsubmit="return confirm('确定删除用户 {{ u.username }}？其对话记录将一并删除。')">
+                  <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ u.id }}">
+                  <button class="btn sm danger" name="action" value="delete">删除</button></form>
+              </div>
+              {% endif %}
+            </details>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div></div>
+{% endblock %}
