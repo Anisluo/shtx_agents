@@ -10,11 +10,17 @@
 </div>
 <div class="composer-wrap">
   <form class="composer" id="composer">
-    <textarea id="input" rows="1" placeholder="例如：锂电池供电，需要 3.3V/200mA 输出，静态电流越低越好…" autofocus></textarea>
+    <div class="attach-list" id="attachList" hidden></div>
+    <textarea id="input" rows="1" placeholder="例如：锂电池供电，需要 3.3V/200mA 输出；也可附上竞品 datasheet / 需求文档…" autofocus></textarea>
     <div class="composer-bar">
-      <span class="muted small">Enter 发送 · Shift+Enter 换行</span>
+      <div class="composer-left">
+        <button type="button" class="icon-btn attach-btn" id="attachBtn" title="上传附件（PDF/Word/Excel/文本）" aria-label="上传附件">📎</button>
+        <span class="muted small">Enter 发送 · Shift+Enter 换行</span>
+      </div>
       <button class="send-btn" id="sendBtn" type="submit" disabled aria-label="发送">↑</button>
     </div>
+    <input type="file" id="fileInput" multiple hidden
+           accept=".pdf,.docx,.xlsx,.xlsm,.csv,.tsv,.txt,.md,.markdown,.log,.json,.xml,.html,.htm,.c,.h,.cpp,.hpp,.py,.js,.sql,.yaml,.yml">
   </form>
   <div class="suggests" id="suggests" hidden>
     <button type="button">12V 转 3.3V，300mA，SOT23 封装的 LDO</button>

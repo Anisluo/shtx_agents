@@ -40,10 +40,28 @@ function setWelcome(on) {
   }
 }
 
-function addUser(text) {
+const ATTACH_HEADER = '〔以下为用户上传的附件，供分析参考〕';
+
+// 把发往后端的消息还原为 {text, files} 用于气泡展示（隐藏附件正文，只显示文件名）
+function parseUserContent(content) {
+  const i = content.indexOf(ATTACH_HEADER);
+  if (i < 0) return { text: content, files: [] };
+  const head = content.slice(0, i).replace(/\n+$/, '');
+  const tail = content.slice(i);
+  const files = [...tail.matchAll(/【文件：([^】]+)】/g)].map(m => m[1]);
+  return { text: head, files };
+}
+
+function fileChipsHtml(files) {
+  if (!files || !files.length) return '';
+  return '<div class="bubble-files">' + files.map(n => `<span class="file-chip">📎 ${escapeHtml(n)}</span>`).join('') + '</div>';
+}
+
+function addUser(text, files) {
   const div = document.createElement('div');
   div.className = 'msg user';
-  div.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
+  const body = (text ? `<div>${escapeHtml(text)}</div>` : '');
+  div.innerHTML = `<div class="bubble">${fileChipsHtml(files)}${body}</div>`;
   thread.appendChild(div);
 }
 
@@ -100,7 +118,7 @@ async function loadConversation(id) {
     titleEl.textContent = c.title;
     document.title = c.title + ' · 太矽产品选型助手';
     for (const m of c.messages) {
-      if (m.role === 'user') { addUser(m.content); continue; }
+      if (m.role === 'user') { const p = parseUserContent(m.content); addUser(p.text, p.files); continue; }
       const v = addAssistant();
       let meta = {};
       try { meta = JSON.parse(m.meta || '{}'); } catch (_) {}
@@ -116,12 +134,13 @@ async function loadConversation(id) {
   }
 }
 
-async function send(text) {
-  if (busy || !text.trim()) return;
+async function send(text, files) {
+  files = files || [];
+  if (busy || (!text.trim() && !files.length)) return;
   busy = true;
   sendBtn.disabled = true;
   setWelcome(false);
-  addUser(text);
+  addUser(text, files.map(f => f.name));
   const v = addAssistant();
   scrollDown(true);
 
@@ -142,12 +161,20 @@ async function send(text) {
     scrollDown();
   };
 
+  if (files.length) phase = '正在读取附件';
   try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
-      body: JSON.stringify({ message: text, conversation_id: cid || 0 }),
-    });
+    let opts;
+    if (files.length) {
+      const fd = new FormData();
+      fd.append('message', text);
+      fd.append('conversation_id', cid || 0);
+      for (const f of files) fd.append('files', f, f.name);
+      opts = { method: 'POST', headers: { 'X-CSRF-Token': CSRF }, body: fd };
+    } else {
+      opts = { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+               body: JSON.stringify({ message: text, conversation_id: cid || 0 }) };
+    }
+    const res = await fetch('/api/chat', opts);
     if (res.status === 401) { location.href = '/login'; return; }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -203,16 +230,54 @@ async function send(text) {
     v.status.remove();
     v.md.classList.remove('cursor');
     busy = false;
-    sendBtn.disabled = !input.value.trim();
+    sendBtn.disabled = !input.value.trim() && !pending.length;
     loadConversations();
     scrollDown();
   }
 }
 
+// ---------- 附件选择 ----------
+const attachBtn = document.getElementById('attachBtn');
+const fileInput = document.getElementById('fileInput');
+const attachList = document.getElementById('attachList');
+const MAX_FILES = 5, MAX_SIZE = 25 * 1024 * 1024;
+let pending = [];  // 待发送文件
+
+function humanSize(n) {
+  return n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+}
+function renderAttachments() {
+  attachList.hidden = !pending.length;
+  attachList.innerHTML = pending.map((f, i) =>
+    `<span class="attach-chip">📎 ${escapeHtml(f.name)} <span class="muted">${humanSize(f.size)}</span>` +
+    `<button type="button" data-i="${i}" aria-label="移除">✕</button></span>`).join('');
+  autosize();
+}
+function addFiles(list) {
+  for (const f of list) {
+    if (pending.length >= MAX_FILES) { alert(`最多上传 ${MAX_FILES} 个文件`); break; }
+    if (f.size > MAX_SIZE) { alert(`「${f.name}」超过 25MB，未添加`); continue; }
+    if (!pending.some(p => p.name === f.name && p.size === f.size)) pending.push(f);
+  }
+  renderAttachments();
+}
+attachBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
+attachList.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-i]');
+  if (b) { pending.splice(Number(b.dataset.i), 1); renderAttachments(); }
+});
+// 拖拽 / 粘贴上传
+const comp = document.querySelector('.composer');
+['dragover', 'dragenter'].forEach(ev => comp.addEventListener(ev, e => { e.preventDefault(); comp.classList.add('drag'); }));
+['dragleave', 'drop'].forEach(ev => comp.addEventListener(ev, e => { e.preventDefault(); comp.classList.remove('drag'); }));
+comp.addEventListener('drop', e => { if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files); });
+input.addEventListener('paste', e => { const fs = [...(e.clipboardData?.files || [])]; if (fs.length) { e.preventDefault(); addFiles(fs); } });
+
 function autosize() {
   input.style.height = 'auto';
   input.style.height = Math.min(input.scrollHeight, 220) + 'px';
-  sendBtn.disabled = busy || !input.value.trim();
+  sendBtn.disabled = busy || (!input.value.trim() && !pending.length);
 }
 
 input.addEventListener('input', autosize);
@@ -222,14 +287,17 @@ input.addEventListener('keydown', (e) => {
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = input.value;
-  if (!text.trim() || busy) return;
+  if (busy || (!text.trim() && !pending.length)) return;
+  const files = pending;
+  pending = [];
+  renderAttachments();
   input.value = '';
   autosize();
-  send(text);
+  send(text, files);
 });
 suggests.addEventListener('click', (e) => {
   const b = e.target.closest('button');
-  if (b) send(b.textContent);
+  if (b) send(b.textContent, []);
 });
 
 // 从产品详情页「咨询」带入的预填问题：填进输入框并聚焦，用户可直接发送或修改

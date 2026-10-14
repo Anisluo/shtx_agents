@@ -5,6 +5,10 @@
 import json
 import re
 import secrets
+import subprocess
+import sys
+import threading
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
 
@@ -12,6 +16,7 @@ from flask import (Flask, Response, abort, flash, jsonify, redirect, render_temp
                    stream_with_context, url_for)
 
 from api_client import BackendClient, BackendError
+from uploads import ALLOWED_EXTS, MAX_FILES, build_message, extract_text
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -28,7 +33,8 @@ BACKEND_URL = FE.get("backend_url", "http://127.0.0.1:8080")
 
 app = Flask(__name__)
 app.secret_key = FE.get("secret_key", "change-me")
-app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax", JSON_AS_ASCII=False)
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax", JSON_AS_ASCII=False,
+                   MAX_CONTENT_LENGTH=30 * 1024 * 1024)  # 附件上传上限 30MB
 
 ROLE_NAMES = {"admin": "管理员", "manager": "主管", "user": "普通用户"}
 
@@ -182,9 +188,37 @@ def api_conversation(cid):
 @app.post("/api/chat")
 @login_required
 def api_chat():
-    payload = request.get_json(silent=True) or {}
-    upstream = backend().stream("/api/chat/stream", {"message": payload.get("message", ""),
-                                                      "conversation_id": int(payload.get("conversation_id") or 0)})
+    # 带附件时为 multipart；否则为 JSON
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
+        message = request.form.get("message", "")
+        cid = int(request.form.get("conversation_id") or 0)
+        attachments = []
+        for f in request.files.getlist("files")[:MAX_FILES]:
+            if not f or not f.filename:
+                continue
+            ext = ("." + f.filename.rsplit(".", 1)[-1].lower()) if "." in f.filename else ""
+            data = f.read()
+            if not data:
+                continue
+            if ext not in ALLOWED_EXTS:
+                attachments.append((f.filename, f"(不支持的文件类型 {ext}，未解析)", False))
+                continue
+            try:
+                text, truncated = extract_text(f.filename, data)
+            except ValueError as e:
+                text, truncated = f"(无法解析该文件：{e})", False
+            except Exception as e:  # noqa: BLE001
+                text, truncated = f"(解析出错：{e.__class__.__name__})", False
+            attachments.append((f.filename, text, truncated))
+        full_message = build_message(message, attachments)
+        if not full_message.strip():
+            return jsonify(error="请输入内容或上传可解析的附件"), 400
+    else:
+        payload = request.get_json(silent=True) or {}
+        message = payload.get("message", "")
+        cid = int(payload.get("conversation_id") or 0)
+        full_message = message
+    upstream = backend().stream("/api/chat/stream", {"message": full_message, "conversation_id": cid})
 
     def generate():
         try:
@@ -265,6 +299,66 @@ def admin_users():
     return render_template("admin_users.html", users=users)
 
 
+# ---------------- 官网 datasheet 同步 ----------------
+SYNC_STATUS_FILE = ROOT / "data" / "sync_status.json"
+_sync = {"running": False, "started": "", "finished": "", "returncode": None, "log": "", "mode": ""}
+_sync_lock = threading.Lock()
+
+
+def _run_sync(mode):
+    args = [sys.executable, str(ROOT / "tools" / "sync_datasheets.py")]
+    if mode == "fast":
+        args.append("--fast")
+    _sync.update(running=True, started=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                 finished="", returncode=None, log="", mode=mode)
+    try:
+        p = subprocess.Popen(args, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                             text=True, encoding="utf-8", errors="replace", bufsize=1)
+        for line in p.stdout:
+            _sync["log"] += line
+            if len(_sync["log"]) > 20000:
+                _sync["log"] = _sync["log"][-20000:]
+        p.wait()
+        _sync["returncode"] = p.returncode
+    except Exception as e:  # noqa: BLE001
+        _sync["log"] += f"\n启动同步失败：{e}"
+        _sync["returncode"] = -1
+    finally:
+        _sync["running"] = False
+        _sync["finished"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _last_sync():
+    if SYNC_STATUS_FILE.exists():
+        try:
+            return json.loads(SYNC_STATUS_FILE.read_text("utf-8"))
+        except (ValueError, OSError):
+            pass
+    return {}
+
+
+@app.route("/admin/sync", methods=["GET", "POST"])
+@role_required("admin")
+def admin_sync():
+    if request.method == "POST":
+        mode = "fast" if request.form.get("mode") == "fast" else "full"
+        with _sync_lock:
+            if _sync["running"]:
+                flash("同步正在进行中，请等待完成", "error")
+            else:
+                threading.Thread(target=_run_sync, args=(mode,), daemon=True).start()
+                flash("已开始与官网同步，可在本页查看实时进度", "success")
+        return redirect(url_for("admin_sync"))
+    return render_template("admin_sync.html", status=_last_sync(), sync=_sync)
+
+
+@app.get("/api/admin/sync-status")
+@role_required("admin")
+def api_sync_status():
+    return jsonify(running=_sync["running"], started=_sync["started"], finished=_sync["finished"],
+                   returncode=_sync["returncode"], mode=_sync["mode"], log=_sync["log"], last=_last_sync())
+
+
 @app.get("/admin/logs")
 @role_required("admin", "manager")
 def admin_logs():
@@ -283,6 +377,13 @@ def admin_log_detail(cid):
         except ValueError:
             m["meta"] = {}
     return render_template("admin_log_detail.html", c=c)
+
+
+@app.errorhandler(413)
+def too_large(_):
+    if request.path.startswith("/api/"):
+        return jsonify(error="上传内容过大（上限 30MB）"), 413
+    return render_template("error.html", code=413, msg="上传内容过大"), 413
 
 
 @app.errorhandler(403)

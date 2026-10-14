@@ -33,5 +33,17 @@
     "backend_url": "http://127.0.0.1:8080",
     // 部署时请改成随机字符串
     "secret_key": "change-me-to-a-random-string"
+  },
+
+  // 自动同步：C++ 后端内置后台线程，定时调用 Python 同步工具，使 datasheet/说明与官网保持一致
+  "sync": {
+    "enabled": false,
+    // 带依赖(requests/bs4/pymupdf/openpyxl)的 python 解释器；部署时一般填 venv 的 python 绝对路径
+    "python": "",
+    "script": "tools/sync_datasheets.py",
+    // full=逐个比对内容(能发现官网换版)，fast=仅补缺失
+    "mode": "full",
+    "interval_hours": 24,
+    "run_at_start": false
   }
 }

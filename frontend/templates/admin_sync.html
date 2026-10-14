@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}数据同步 · 太矽产品选型助手{% endblock %}
+{% block topbar %}数据同步{% endblock %}
+{% block content %}
+<div class="page"><div class="page-inner" style="max-width:900px">
+  <h1>与官网同步 datasheet / 产品说明</h1>
+  <p class="muted">数据来源：<a href="https://www.txsemi.com/cn/index.html" target="_blank" rel="noopener">txsemi.com 官网下载中心与产品中心</a>。
+    同步会重新抓取官网 datasheet 与参数表并更新产品库；<b>不会影响用户账号与对话记录</b>。</p>
+
+  <div class="panel">
+    <form method="post" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="btn primary" type="submit" name="mode" value="full" id="btnFull">完整同步（比对内容，最准确）</button>
+      <button class="btn" type="submit" name="mode" value="fast" id="btnFast">快速同步（仅补缺失）</button>
+      <span class="muted small" id="runHint" {% if not sync.running %}hidden{% endif %}>⏳ 同步进行中…</span>
+    </form>
+    <p class="muted small" style="margin-bottom:0">完整同步会逐个重新下载并按内容比对，可发现官网替换的新版 datasheet；耗时约 1~3 分钟。</p>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin-top:0">上次同步结果</h3>
+    <div id="lastBox">
+      {% if status %}
+        {% include "_sync_summary.html" %}
+      {% else %}
+        <p class="muted">尚未执行过同步。</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin-top:0">运行日志</h3>
+    <pre id="syncLog" class="sync-log">{{ sync.log or '（暂无）' }}</pre>
+  </div>
+</div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+const logEl = document.getElementById('syncLog');
+const hint = document.getElementById('runHint');
+const lastBox = document.getElementById('lastBox');
+let wasRunning = {{ 'true' if sync.running else 'false' }};
+
+async function poll() {
+  try {
+    const r = await fetch('/api/admin/sync-status', { headers: { 'X-CSRF-Token': document.querySelector('meta[name=csrf-token]').content } });
+    if (!r.ok) return;
+    const s = await r.json();
+    if (s.log) { logEl.textContent = s.log; }
+    hint.hidden = !s.running;
+    document.getElementById('btnFull').disabled = s.running;
+    document.getElementById('btnFast').disabled = s.running;
+    if (wasRunning && !s.running) { location.reload(); return; } // 完成后刷新汇总
+    wasRunning = s.running;
+    if (s.running) setTimeout(poll, 1500);
+  } catch (e) { /* ignore */ }
+}
+if (wasRunning) poll(); else setTimeout(poll, 500);
+</script>
+{% endblock %}

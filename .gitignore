@@ -7,6 +7,11 @@ data_info_with_password.xlsx
 data/shtx.db
 data/shtx.db-wal
 data/shtx.db-shm
+# 同步运行时文件
+data/sync_status.json
+data/sync.lock
+# 临时测试配置（可能含 Key）
+config_sync_test.json
 
 # ===== 运行产物 =====
 logs/

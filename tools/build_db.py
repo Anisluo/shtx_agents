@@ -358,8 +358,9 @@ def import_users(conn, reset):
     print(f"用户导入：新增 {added}，重置 {updated}")
 
 
-def main():
-    reset = "--reset-users" in sys.argv
+def build(reset_users=False):
+    """解析 datasheet + 参数表，重建 products / competitors；users 仅在存在 Excel 时增量导入。
+    只改 products/competitors/users，不动 conversations/messages/sessions。返回统计 dict。"""
     DB_PATH.parent.mkdir(exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.executescript(SCHEMA)
@@ -371,13 +372,17 @@ def main():
         conn.executemany("INSERT INTO products(model, category, series, title, description, features, applications, packages, "
                          "key_specs, datasheet, search_text) VALUES(?,?,?,?,?,?,?,?,?,?,?)", rows)
     with_ds = sum(1 for r in rows if r[9])
-    print(f"产品入库 {len(rows)} 个型号（其中 {with_ds} 个关联 datasheet）-> {DB_PATH}")
+    print(f"产品入库 {len(rows)} 个型号（其中 {with_ds} 个关联 datasheet）-> {DB_PATH}", flush=True)
 
     build_competitors(conn, {p["model"].upper() for p in products.values()})
-
     with conn:
-        import_users(conn, reset)
+        import_users(conn, reset_users)
     conn.close()
+    return {"products": len(rows), "with_datasheet": with_ds}
+
+
+def main():
+    build(reset_users="--reset-users" in sys.argv)
 
 
 if __name__ == "__main__":

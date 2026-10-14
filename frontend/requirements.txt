@@ -1,0 +1,7 @@
+# Python 前端依赖
+flask>=3.0
+requests>=2.31
+# 对话附件解析（PDF / Word / Excel）
+pymupdf>=1.24
+python-docx>=1.1
+openpyxl>=3.1

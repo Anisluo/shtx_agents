@@ -2,6 +2,7 @@
 1. 技术文档下载中心的全部 datasheet PDF -> datasheets/
 2. 产品中心各系列参数表 -> data/web_products.json
 """
+import hashlib
 import json
 import re
 import time
@@ -16,6 +17,10 @@ ROOT = Path(__file__).resolve().parent.parent
 PDF_DIR = ROOT / "datasheets"
 DATA_DIR = ROOT / "data"
 HEADERS = {"User-Agent": "Mozilla/5.0 (shtx-agents datasheet crawler)"}
+
+
+def _log(msg):
+    print(msg, flush=True)
 
 
 def get(url):
@@ -34,7 +39,10 @@ def soup(url):
     return BeautifulSoup(get(url).content.decode("utf-8", "ignore"), "html.parser")
 
 
-def crawl_pdfs():
+def crawl_pdfs(force_recheck=True):
+    """下载/更新下载中心的 datasheet。
+    force_recheck=True 时会重新拉取每个文件并按内容比对，用于与官网保持同步（能发现同名文件被替换的更新）。
+    返回 {"added":[...], "updated":[...], "unchanged":n, "total":n}。"""
     PDF_DIR.mkdir(exist_ok=True)
     seen = {}
     page = 1
@@ -47,18 +55,36 @@ def crawl_pdfs():
             name = unescape(href.rsplit("/", 1)[-1])
             seen.setdefault(name, href)
         page += 1
-    print(f"共发现 {len(seen)} 份 datasheet（{page - 1} 页）")
+    _log(f"官网下载中心共发现 {len(seen)} 份 datasheet（{page - 1} 页）")
+    added, updated, unchanged = [], [], 0
     for name, href in sorted(seen.items()):
         dst = PDF_DIR / name
-        if dst.exists() and dst.stat().st_size > 0:
+        exists = dst.exists() and dst.stat().st_size > 0
+        if exists and not force_recheck:
+            unchanged += 1
             continue
-        data = get(BASE + href).content
+        try:
+            data = get(BASE + href).content
+        except requests.RequestException as e:
+            _log(f"  下载失败 {name}: {e}")
+            continue
         if not data.startswith(b"%PDF"):
-            print("  跳过(非PDF):", name)
+            _log(f"  跳过(非PDF): {name}")
             continue
-        dst.write_bytes(data)
-        print(f"  下载 {name} ({len(data) // 1024} KB)")
-    return seen
+        if exists:
+            old = dst.read_bytes()
+            if hashlib.md5(old).digest() == hashlib.md5(data).digest():
+                unchanged += 1
+                continue
+            dst.write_bytes(data)
+            updated.append(name)
+            _log(f"  更新 {name} ({len(data)//1024} KB)")
+        else:
+            dst.write_bytes(data)
+            added.append(name)
+            _log(f"  新增 {name} ({len(data)//1024} KB)")
+    _log(f"datasheet 同步：新增 {len(added)}，更新 {len(updated)}，未变 {unchanged}")
+    return {"added": added, "updated": updated, "unchanged": unchanged, "total": len(seen)}
 
 
 def cell_text(td):
@@ -163,10 +189,17 @@ def build_web_products(raw):
     return result
 
 
-if __name__ == "__main__":
+def crawl(force_recheck=True):
+    """执行一次完整抓取：datasheet PDF + 官网参数表。返回报告 dict。"""
     DATA_DIR.mkdir(exist_ok=True)
-    crawl_pdfs()
+    pdf_report = crawl_pdfs(force_recheck=force_recheck)
     raw = crawl_product_tables()
     web = build_web_products(raw)
     (DATA_DIR / "web_products.json").write_text(json.dumps(web, ensure_ascii=False, indent=1), "utf-8")
-    print(f"官网参数表共 {len(web)} 个型号 -> data/web_products.json")
+    _log(f"官网参数表共 {len(web)} 个型号 -> data/web_products.json")
+    return {"pdf": pdf_report, "web_models": len(web)}
+
+
+if __name__ == "__main__":
+    import sys
+    crawl(force_recheck="--fast" not in sys.argv)

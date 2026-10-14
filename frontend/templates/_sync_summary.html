@@ -1,0 +1,18 @@
+<div class="stats">
+  <div class="stat"><span class="muted small">产品型号</span><b>{{ status.products_total or 0 }}</b></div>
+  <div class="stat"><span class="muted small">关联 datasheet</span><b>{{ status.products_with_datasheet or 0 }}</b></div>
+  <div class="stat"><span class="muted small">datasheet 新增</span><b>{{ status.datasheets.added|length if status.datasheets else 0 }}</b></div>
+  <div class="stat"><span class="muted small">datasheet 更新</span><b>{{ status.datasheets.updated|length if status.datasheets else 0 }}</b></div>
+</div>
+<table class="spec-table">
+  <tr><th>状态</th><td>{% if status.ok %}<span class="tag">成功</span>{% else %}<span class="tag off">失败</span>{% endif %}</td></tr>
+  <tr><th>开始 / 结束</th><td>{{ status.started_at }} → {{ status.finished_at }}（{{ status.elapsed_sec }}s）</td></tr>
+  {% if status.error %}<tr><th>错误</th><td class="muted">{{ status.error }}</td></tr>{% endif %}
+  {% if status.datasheets and status.datasheets.added %}
+  <tr><th>新增 datasheet</th><td>{{ status.datasheets.added|join('、') }}</td></tr>{% endif %}
+  {% if status.datasheets and status.datasheets.updated %}
+  <tr><th>更新 datasheet</th><td>{{ status.datasheets.updated|join('、') }}</td></tr>{% endif %}
+  {% if status.new_models %}<tr><th>新增型号</th><td>{{ status.new_models|join('、') }}</td></tr>{% endif %}
+  {% if status.removed_models %}<tr><th>下架型号</th><td>{{ status.removed_models|join('、') }}</td></tr>{% endif %}
+  {% if status.datasheet_version_changed %}<tr><th>换版型号</th><td>{{ status.datasheet_version_changed|join('、') }}</td></tr>{% endif %}
+</table>

@@ -27,6 +27,7 @@
       {% endif %}
       {% if me and me.role == 'admin' %}
       <a href="{{ url_for('admin_users') }}" class="{{ 'active' if request.endpoint == 'admin_users' }}">◎ 用户管理</a>
+      <a href="{{ url_for('admin_sync') }}" class="{{ 'active' if request.endpoint == 'admin_sync' }}">🔄 数据同步</a>
       {% endif %}
     </nav>
     <div class="sb-section-title">最近对话</div>

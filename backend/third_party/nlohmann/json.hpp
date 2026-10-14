@@ -1,3 +1,4 @@
+
 //     __ _____ _____ _____
 //  __|  |   __|     |   | |  JSON for Modern C++
 // |  |  |__   |  |  | | | |  version 3.11.3
@@ -40,8 +41,6 @@
 // SPDX-FileCopyrightText: 2013-2023 Niels Lohmann <https://nlohmann.me>
 // SPDX-License-Identifier: MIT
 
-
-
 #include <utility>
 
 // #include <nlohmann/detail/abi_macros.hpp>
@@ -52,8 +51,6 @@
 //
 // SPDX-FileCopyrightText: 2013-2023 Niels Lohmann <https://nlohmann.me>
 // SPDX-License-Identifier: MIT
-
-
 
 // This file contains all macro definitions affecting or depending on the ABI
 

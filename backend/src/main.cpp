@@ -1,6 +1,8 @@
 // 太矽电子 AI 产品推荐系统 —— C++ 后端 (REST API + SSE 流式对话)
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
+#include <thread>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -18,12 +20,22 @@
 
 namespace fs = std::filesystem;
 
+struct SyncConfig {
+    bool enabled = false;
+    std::string python;                        // 带依赖的 python 解释器（如 venv/bin/python）
+    std::string script = "tools/sync_datasheets.py";
+    std::string mode = "full";                 // full | fast
+    int interval_hours = 24;
+    bool run_at_start = false;                  // 启动后是否先同步一次
+};
+
 struct AppConfig {
     std::string host = "127.0.0.1";
     int port = 8080;
-    std::string db_path, datasheet_dir, log_dir;
+    std::string db_path, datasheet_dir, log_dir, app_dir;
     int history_messages = 20;
     GlmConfig glm;
+    SyncConfig sync;
 };
 
 static AppConfig g_cfg;
@@ -107,6 +119,16 @@ static void load_config(const std::string& path) {
     g_cfg.datasheet_dir = resolve(b.value("datasheet_dir", "datasheets"));
     g_cfg.log_dir = resolve(b.value("log_dir", "logs"));
     g_cfg.history_messages = b.value("history_messages", 20);
+    g_cfg.app_dir = base.u8string();
+
+    const json& sc = c.value("sync", json::object());
+    g_cfg.sync.enabled = sc.value("enabled", false);
+    g_cfg.sync.python = sc.value("python", "");
+    g_cfg.sync.script = sc.value("script", g_cfg.sync.script);
+    g_cfg.sync.mode = sc.value("mode", g_cfg.sync.mode);
+    g_cfg.sync.interval_hours = sc.value("interval_hours", g_cfg.sync.interval_hours);
+    g_cfg.sync.run_at_start = sc.value("run_at_start", false);
+    if (g_cfg.sync.interval_hours < 1) g_cfg.sync.interval_hours = 24;
 
     const json& g = c.value("glm", json::object());
     g_cfg.glm.api_key = g.value("api_key", "");
@@ -119,6 +141,40 @@ static void load_config(const std::string& path) {
     g_cfg.glm.thinking = g.value("thinking", g_cfg.glm.thinking);
     g_cfg.glm.reasoning_effort = g.value("reasoning_effort", g_cfg.glm.reasoning_effort);
     if (const char* env = std::getenv("GLM_API_KEY"); env && *env) g_cfg.glm.api_key = env;
+}
+
+// ---------------------------------------------------------------- 自动同步调度
+static void run_sync_once() {
+    const auto& s = g_cfg.sync;
+    std::string fast = (s.mode == "fast") ? " --fast" : "";
+    fs::path logf = fs::u8path(g_cfg.log_dir) / "sync_cron.log";
+    // 调用 Python 同步工具（PDF/HTML 解析在 Python 侧，锁文件保证不与手动同步并发）
+    std::string cmd = "cd \"" + g_cfg.app_dir + "\" && \"" + s.python + "\" \"" + s.script + "\"" + fast +
+                      " >> \"" + logf.u8string() + "\" 2>&1";
+    log_info("[自动同步] 开始 (mode=" + s.mode + ")");
+    int rc = std::system(cmd.c_str());
+    log_info("[自动同步] 结束 rc=" + std::to_string(rc));
+}
+
+static void start_sync_scheduler() {
+    const auto& s = g_cfg.sync;
+    if (!s.enabled) return;
+    if (s.python.empty()) {
+        log_info("自动同步已开启但未配置 sync.python，已跳过");
+        return;
+    }
+    log_info("自动同步已开启：每 " + std::to_string(s.interval_hours) + " 小时一次，mode=" + s.mode +
+             (s.run_at_start ? "，启动后先跑一次" : ""));
+    std::thread([] {
+        if (g_cfg.sync.run_at_start) {
+            std::this_thread::sleep_for(std::chrono::seconds(20));  // 等服务与网络就绪
+            run_sync_once();
+        }
+        for (;;) {
+            std::this_thread::sleep_for(std::chrono::hours(g_cfg.sync.interval_hours));
+            run_sync_once();
+        }
+    }).detach();
 }
 
 // ---------------------------------------------------------------- 路由
@@ -329,7 +385,7 @@ static void register_conversation_routes(httplib::Server& svr) {
         json b = body_json(req);
         std::string message = b.value("message", "");
         if (message.empty()) return fail(res, 400, "消息不能为空");
-        if (message.size() > 8000) return fail(res, 400, "消息过长");
+        if (message.size() > 400000) return fail(res, 400, "消息过长（含附件内容）");
         long long uid = (*u)["id"].get<long long>();
         long long cid = b.value("conversation_id", 0LL);
         bool created = false;
@@ -459,7 +515,7 @@ int main(int argc, char** argv) {
     httplib::Server svr;
     svr.set_read_timeout(30);
     svr.set_write_timeout(300);
-    svr.set_payload_max_length(1 << 20);
+    svr.set_payload_max_length(8 << 20);  // 8MB，容纳附件提取出的文本
 
     svr.Get("/api/health", [](const httplib::Request&, httplib::Response& res) {
         Db db(g_cfg.db_path);
@@ -472,6 +528,8 @@ int main(int argc, char** argv) {
     register_admin_routes(svr);
     register_conversation_routes(svr);
     register_product_routes(svr);
+
+    start_sync_scheduler();  // 后台自动同步线程（按 config.sync 配置）
 
     svr.set_exception_handler([](const httplib::Request& req, httplib::Response& res, std::exception_ptr ep) {
         std::string msg = "未知错误";
