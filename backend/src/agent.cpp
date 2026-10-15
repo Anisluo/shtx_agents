@@ -18,6 +18,7 @@ const char* kSystemPrompt = R"(你是「上海太矽电子科技有限公司」(
 2. 选型常用流程：list_categories 了解产品线 → search_products 检索候选（可只按 category/series 列出整个系列做参数比对）→ get_product_details 查看关键参数、特性与应用。
    当用户提到其它厂商的型号或标准料号（如 AMS1117、LM317、TL431、NE555、XC6206、ULN2003、MAX485、A3144、TP4054、7805、MAX809 等）时，先用 find_alternative 查找太矽的国产替代型号，再用 get_product_details 核对替代型号参数是否满足需求。
 3. 关键参数要逐项核对用户需求：输入/工作电压、极限耐压、输出电压、输出电流、静态功耗、精度、压差、PSRR、封装、温度范围等。参数不满足时要明确说明。
+   当用户给出电气指标时，必须把它们作为 search_products 的数值参数（vin_v/vout_v/iout_min_ma/iq_max_ua/package）进行精确过滤，不要只靠关键词猜；检索结果里的 specs 字段是规范化数值(电压V/电流mA/静态电流uA/压差mV)，据此逐项核对。
 4. 若用户需求信息不足（例如未给出输入电压范围、负载电流、封装要求），先给出初步推荐，再列出需要补充确认的关键问题。
 5. 回答使用简体中文 Markdown，结构建议：
    - **需求理解**：一句话总结
@@ -47,14 +48,20 @@ json Agent::tool_schemas() {
          {"function",
           {{"name", "search_products"},
            {"description",
-            "按关键词检索产品，返回候选型号及关键参数摘要。关键词用空格分隔，建议拆成短词，例如 \"LDO 低功耗 SOT23\"、\"霍尔 风扇\"、\"降压 Buck 2A\"、\"TX6206\"。"
-            "也可以不给关键词，仅用 category 或 series 列出整个系列做参数比对。"},
+            "按关键词 + 数值指标检索产品，返回候选型号及关键参数(含规范化数值 specs)。关键词用空格分隔，如 \"LDO 低功耗 SOT23\"、\"降压 Buck\"。"
+            "强烈建议：用户给了电气指标时，务必填 vin_v/vout_v/iout_min_ma/iq_max_ua/package 做精确过滤，而不是只靠关键词。"
+            "也可不给关键词，仅用 category/series 列出整个系列做参数比对。"},
            {"parameters",
             {{"type", "object"},
              {"properties",
               {{"keywords", {{"type", "string"}, {"description", "空格分隔的关键词，可为空"}}},
                {"category", {{"type", "string"}, {"description", "产品大类过滤（可选），如 电源管理芯片、霍尔传感器芯片"}}},
                {"series", {{"type", "string"}, {"description", "系列过滤（可选），如 LDO、Boost、复位"}}},
+               {"vin_v", {{"type", "number"}, {"description", "设计的输入/工作电压(V)，筛选能耐受该电压的型号，如 12"}}},
+               {"vout_v", {{"type", "number"}, {"description", "需要的输出电压(V)，筛选能输出该电压(含可调)的型号，如 3.3"}}},
+               {"iout_min_ma", {{"type", "number"}, {"description", "需要的最小输出电流(mA)，如 500"}}},
+               {"iq_max_ua", {{"type", "number"}, {"description", "静态电流上限(uA)，越低越省电时使用，如 10"}}},
+               {"package", {{"type", "string"}, {"description", "封装要求(可选)，如 SOT23-5"}}},
                {"limit", {{"type", "integer"}, {"description", "返回数量上限，默认 15，最大 50"}}}}}}}}}},
         {{"type", "function"},
          {"function",
@@ -85,9 +92,13 @@ json Agent::call_tool(const std::string& name, const json& args, std::string& su
         return r;
     }
     if (name == "search_products") {
+        json filters = json::object();
+        for (const char* k : {"vin_v", "vout_v", "iout_min_ma", "iq_max_ua", "package"})
+            if (args.contains(k) && !args[k].is_null()) filters[k] = args[k];
         json r = products::search(db, args.value("keywords", ""), args.value("category", ""), args.value("series", ""),
-                                  args.value("limit", 15));
+                                  args.value("limit", 15), filters);
         summary = "找到 " + std::to_string(r.size()) + " 个候选型号";
+        if (!filters.empty()) summary += "（按指标过滤）";
         return r;
     }
     if (name == "find_alternative") {

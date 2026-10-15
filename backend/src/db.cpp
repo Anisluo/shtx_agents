@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS products (
     applications TEXT NOT NULL DEFAULT '',
     packages TEXT NOT NULL DEFAULT '',
     key_specs TEXT NOT NULL DEFAULT '{}',
+    specs_norm TEXT NOT NULL DEFAULT '{}',
     datasheet TEXT NOT NULL DEFAULT '',
     search_text TEXT NOT NULL DEFAULT ''
 );
@@ -150,4 +151,10 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversation_id, id);
 CREATE INDEX IF NOT EXISTS idx_conv_user ON conversations(user_id, updated_at);
 )SQL");
+    // 兼容旧库：缺少 specs_norm 列时补上（新库由上面的 CREATE 已含该列）
+    try {
+        db.exec("ALTER TABLE products ADD COLUMN specs_norm TEXT NOT NULL DEFAULT '{}'");
+    } catch (const std::exception&) {
+        // 已存在该列，忽略
+    }
 }

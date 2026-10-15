@@ -1,6 +1,7 @@
 #include "product_repo.hpp"
 
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <regex>
 
@@ -56,7 +57,22 @@ json list_categories(Db& db) {
     return out;
 }
 
-json search(Db& db, const std::string& keywords, const std::string& category, const std::string& series, int limit) {
+namespace {
+// 读取数值过滤条件（缺省/非数值返回 NaN）
+double fnum(const json& f, const char* key) {
+    if (!f.contains(key)) return std::nan("");
+    const json& v = f[key];
+    if (v.is_number()) return v.get<double>();
+    if (v.is_string()) {
+        try { return std::stod(v.get<std::string>()); } catch (...) { return std::nan(""); }
+    }
+    return std::nan("");
+}
+const char* JX = "json_extract(specs_norm,'$.";
+}  // namespace
+
+json search(Db& db, const std::string& keywords, const std::string& category, const std::string& series, int limit,
+            const json& filters) {
     if (limit <= 0 || limit > 50) limit = 15;
     auto kws = split_keywords(keywords);
     std::string score = "0";
@@ -70,15 +86,61 @@ json search(Db& db, const std::string& keywords, const std::string& category, co
         for (size_t pos; (pos = score.find("?1x")) != std::string::npos;) score.replace(pos, 3, "?" + n);
         params.emplace_back("%" + k + "%");
     }
-    std::string sql = "SELECT *, (" + score + ") AS score FROM products WHERE 1=1";
-    if (!category.empty()) {
-        sql += " AND category LIKE ?";
-        params.emplace_back("%" + category + "%");
+
+    // 数值硬过滤（对缺失该字段的型号宽容放行，避免解析遗漏误杀；明确不满足者剔除）
+    // 同时对"明确满足"的型号加分，使其排在未知项之前。where/bonus 的参数分别收集后按顺序拼接。
+    std::string where, bonus;
+    std::vector<DbParam> wparams, bparams;
+    auto cmin = [&](const char* jkey, double val, double w) {
+        if (std::isnan(val)) return;
+        std::string e = std::string(JX) + jkey + "')";
+        where += " AND (" + e + " IS NULL OR CAST(" + e + " AS REAL) >= ?)";
+        wparams.emplace_back(val);
+        bonus += " + (CASE WHEN " + e + " IS NOT NULL AND CAST(" + e + " AS REAL) >= ? THEN " + std::to_string(w) + " ELSE 0 END)";
+        bparams.emplace_back(val);
+    };
+    auto cmax = [&](const char* jkey, double val, double w) {
+        if (std::isnan(val)) return;
+        std::string e = std::string(JX) + jkey + "')";
+        where += " AND (" + e + " IS NULL OR CAST(" + e + " AS REAL) <= ?)";
+        wparams.emplace_back(val);
+        bonus += " + (CASE WHEN " + e + " IS NOT NULL AND CAST(" + e + " AS REAL) <= ? THEN " + std::to_string(w) + " ELSE 0 END)";
+        bparams.emplace_back(val);
+    };
+
+    double vin = fnum(filters, "vin_v");        // 设计的输入电压，需被型号耐受
+    double iout = fnum(filters, "iout_min_ma"); // 需要的最小输出电流
+    double iqmax = fnum(filters, "iq_max_ua");  // 静态电流上限
+    cmin("vin_max_v", vin, 4);
+    cmin("iout_ma", iout, 4);
+    cmax("iq_ua", iqmax, 3);
+
+    // 输出电压需被覆盖：可调 或 落在 [vout_min,vout_max]
+    std::string vout_where, vout_bonus;
+    double vout = fnum(filters, "vout_v");
+    if (!std::isnan(vout)) {
+        std::string lo = std::string(JX) + "vout_min_v')", hi = std::string(JX) + "vout_max_v')",
+                    adj = std::string(JX) + "vout_adj')";
+        vout_where = " AND (" + adj + "=1 OR " + lo + " IS NULL OR (CAST(" + lo + " AS REAL)<=? AND CAST(" + hi +
+                     " AS REAL)>=?))";
+        vout_bonus = " + (CASE WHEN " + adj + "=1 OR (CAST(" + lo + " AS REAL)<=? AND CAST(" + hi +
+                     " AS REAL)>=?) THEN 4 ELSE 0 END)";
     }
-    if (!series.empty()) {
-        sql += " AND series LIKE ?";
-        params.emplace_back("%" + series + "%");
-    }
+
+    std::string pkg = filters.value("package", "");
+
+    // 组装最终 SQL：score = 关键词分 + 数值命中加分
+    std::string full_score = score + bonus + vout_bonus;
+    std::string sql = "SELECT *, (" + full_score + ") AS score FROM products WHERE 1=1";
+    // 参数顺序：关键词(params) -> bonus(bparams) -> vout_bonus(2) -> category -> series -> where(wparams) -> vout_where(2) -> pkg -> limit
+    for (auto& p : bparams) params.push_back(p);
+    if (!std::isnan(vout)) { params.emplace_back(vout); params.emplace_back(vout); }
+    if (!category.empty()) { sql += " AND category LIKE ?"; params.emplace_back("%" + category + "%"); }
+    if (!series.empty()) { sql += " AND series LIKE ?"; params.emplace_back("%" + series + "%"); }
+    sql += where;
+    for (auto& p : wparams) params.push_back(p);
+    if (!vout_where.empty()) { sql += vout_where; params.emplace_back(vout); params.emplace_back(vout); }
+    if (!pkg.empty()) { sql += " AND packages LIKE ?"; params.emplace_back("%" + pkg + "%"); }
     if (!kws.empty()) sql += " AND score > 0";
     sql += " ORDER BY score DESC, model LIMIT ?";
     params.emplace_back(static_cast<long long>(limit));
@@ -87,6 +149,8 @@ json search(Db& db, const std::string& keywords, const std::string& category, co
     for (const auto& r : db.query(sql, params)) {
         json p = to_public(r, false);
         p["match_score"] = r["score"];
+        json sn = json::parse(r.value("specs_norm", "{}"), nullptr, false);
+        if (!sn.is_discarded() && sn.is_object() && !sn.empty()) p["specs"] = sn;
         out.push_back(std::move(p));
     }
     return out;

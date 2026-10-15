@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS products (
     applications TEXT NOT NULL DEFAULT '',
     packages TEXT NOT NULL DEFAULT '',
     key_specs TEXT NOT NULL DEFAULT '{}',
+    specs_norm TEXT NOT NULL DEFAULT '{}',
     datasheet TEXT NOT NULL DEFAULT '',
     search_text TEXT NOT NULL DEFAULT ''
 );
@@ -276,8 +277,111 @@ def build_products():
     return products
 
 
+def _nums(s):
+    return [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?", str(s))]
+
+
+def _left(v):
+    # 取 @ 之前的主数值部分（如 "170@100mA" -> "170"，"1.5V@100mA" -> "1.5V"）
+    return re.split(r"[@＠]", str(v))[0]
+
+
+def _range(v):
+    """解析电压/温度等区间，返回 (lo, hi)。正确区分 '-' 作区间分隔符还是负号。
+    例： '1.2-3.6'->(1.2,3.6)  '3.5~20'->(3.5,20)  '-40~85'->(-40,85)  '-5~-15'->(-15,-5)  '6.5'->(6.5,6.5)"""
+    s = _left(v)
+    t = re.sub(r"[~～至]", "|", s)            # 统一波浪号区间符
+    if "|" in t:
+        parts = [p for p in t.split("|") if _nums(p)]
+        if len(parts) >= 2:
+            a, b = _nums(parts[0])[0], _nums(parts[-1])[0]
+            return (min(a, b), max(a, b))
+    m = re.search(r"(\d+(?:\.\d+)?)\s*[-－—]\s*(\d+(?:\.\d+)?)", s)  # 正数之间的短横线=区间
+    if m:
+        a, b = float(m.group(1)), float(m.group(2))
+        return (min(a, b), max(a, b))
+    nums = _nums(s)
+    return (min(nums), max(nums)) if nums else None
+
+
+def normalize_specs(params):
+    """把中文自由文本参数解析为规范数值字段，用于数值过滤检索。
+    电压 V、电流 mA、静态电流 uA、压差 mV、温度 ℃。解析不出的字段省略。"""
+    out = {}
+    for k, v in params.items():
+        if v is None or str(v).strip() in ("", "-", "/"):
+            continue
+        key = str(k)
+        val = str(v)
+        low = val.lower()
+        left = _left(val)
+        nums = _nums(left)
+
+        if "封装" in key:
+            continue  # 封装单独走 packages 列
+        if "极限" in key or ("耐压" in key):
+            if nums:
+                out["vabs_max_v"] = max(nums)
+            continue
+        if any(t in key for t in ("工作电压", "输入电压", "最大工作电压", "工作电压范围", "输入电压范围")):
+            rg = _range(val)
+            if rg:
+                out["vin_min_v"], out["vin_max_v"] = rg
+            continue
+        if "输出电压" in key:
+            if "adj" in low or "可调" in val:
+                out["vout_adj"] = 1
+            rg = _range(val)
+            if rg:
+                out["vout_min_v"], out["vout_max_v"] = rg
+            continue
+        if any(t in key for t in ("输出电流", "最大持续电流", "平均电流", "驱动电流")):
+            if nums:
+                cur = max(nums)
+                if ("a" in low and "ma" not in low and "ua" not in low) or cur <= 10:
+                    # 以 A 为单位（或数值太小不像 mA）时换算
+                    if "a" in low and "ma" not in low and "ua" not in low:
+                        cur *= 1000
+                out["iout_ma"] = cur
+            continue
+        if "峰值电流" in key:
+            if nums:
+                out["ipk_ma"] = max(nums)
+            continue
+        if "静态" in key:  # 静态电流 / 静态功耗
+            if nums:
+                iq = nums[0]
+                if "ma" in low or "(ma" in key.lower() or "（ma" in key.lower() or "mA" in key:
+                    iq *= 1000
+                out["iq_ua"] = iq
+            continue
+        if "压差" in key:
+            if nums:
+                d = nums[0]
+                if "v" in low or "(v" in key.lower() or "（v" in key.lower():
+                    if "mv" not in low:
+                        d *= 1000
+                out["dropout_mv"] = d
+            continue
+        if "纹波抑制" in key or "psrr" in key.lower():
+            if nums:
+                out["psrr_db"] = nums[0]
+            continue
+        if "精度" in key:
+            if nums:
+                out["acc_pct"] = abs(nums[0])
+            continue
+        if "工作温度" in key or "温度范围" in key:
+            rg = _range(val)
+            if rg and rg[0] != rg[1]:
+                out["topr_min_c"], out["topr_max_c"] = rg
+            continue
+    return out
+
+
 def to_row(p):
     params = dict(p.get("params", {}))
+    specs_norm = normalize_specs(params)  # 从干净的参数表解析数值字段
     pkg_web = next((v for k, v in params.items() if "封装" in k), "")
     pkgs = list(dict.fromkeys([x.strip() for x in re.split(r"[/、,，]", pkg_web) if x.strip()] + p.get("packages", [])))
     if p.get("abs_max"):
@@ -292,7 +396,8 @@ def to_row(p):
                      " ".join(pkgs), json.dumps(params, ensure_ascii=False)])
     tags = " ".join(zh for pat, zh in ZH_TAGS if re.search(pat, blob, re.I))
     return (p["model"], p.get("category", ""), p.get("series", ""), title, desc, features, apps, "/".join(pkgs),
-            json.dumps(params, ensure_ascii=False), p.get("datasheet", ""), blob + " " + tags)
+            json.dumps(params, ensure_ascii=False), json.dumps(specs_norm, ensure_ascii=False),
+            p.get("datasheet", ""), blob + " " + tags)
 
 
 def build_competitors(conn, product_models):
@@ -363,6 +468,7 @@ def build(reset_users=False):
     只改 products/competitors/users，不动 conversations/messages/sessions。返回统计 dict。"""
     DB_PATH.parent.mkdir(exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
+    conn.execute("DROP TABLE IF EXISTS products")  # 重建以应用最新表结构(含 specs_norm)
     conn.executescript(SCHEMA)
 
     products = build_products()
@@ -370,7 +476,7 @@ def build(reset_users=False):
     with conn:
         conn.execute("DELETE FROM products")
         conn.executemany("INSERT INTO products(model, category, series, title, description, features, applications, packages, "
-                         "key_specs, datasheet, search_text) VALUES(?,?,?,?,?,?,?,?,?,?,?)", rows)
+                         "key_specs, specs_norm, datasheet, search_text) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", rows)
     with_ds = sum(1 for r in rows if r[9])
     print(f"产品入库 {len(rows)} 个型号（其中 {with_ds} 个关联 datasheet）-> {DB_PATH}", flush=True)
 

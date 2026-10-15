@@ -9,7 +9,8 @@ namespace products {
 
 json list_categories(Db& db);
 // keywords 以空格/逗号分隔，按命中关键词数打分；category/series 可选精确过滤（模糊匹配）
-json search(Db& db, const std::string& keywords, const std::string& category, const std::string& series, int limit);
+json search(Db& db, const std::string& keywords, const std::string& category, const std::string& series, int limit,
+            const json& filters = json::object());
 json details(Db& db, const std::vector<std::string>& models);
 json get(Db& db, const std::string& model);
 // 行 -> API 输出（解析 key_specs，补充 datasheet_url）
