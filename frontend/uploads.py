@@ -13,8 +13,9 @@ TEXT_EXTS = {".txt", ".md", ".markdown", ".csv", ".tsv", ".log", ".json", ".ini"
 PDF_EXTS = {".pdf"}
 DOCX_EXTS = {".docx"}
 XLSX_EXTS = {".xlsx", ".xlsm"}
+IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
 
-ALLOWED_EXTS = TEXT_EXTS | PDF_EXTS | DOCX_EXTS | XLSX_EXTS
+ALLOWED_EXTS = TEXT_EXTS | PDF_EXTS | DOCX_EXTS | XLSX_EXTS | IMAGE_EXTS
 
 
 def _clip(text):

@@ -16,7 +16,8 @@ from flask import (Flask, Response, abort, flash, jsonify, redirect, render_temp
                    stream_with_context, url_for)
 
 from api_client import BackendClient, BackendError
-from uploads import ALLOWED_EXTS, MAX_FILES, build_message, extract_text
+from uploads import ALLOWED_EXTS, IMAGE_EXTS, MAX_FILES, build_message, extract_text
+from vision import describe_image
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -204,7 +205,12 @@ def api_chat():
                 attachments.append((f.filename, f"(不支持的文件类型 {ext}，未解析)", False))
                 continue
             try:
-                text, truncated = extract_text(f.filename, data)
+                if ext in IMAGE_EXTS:
+                    # 图片走 GLM 视觉模型(glm-4.5v)识别文字与器件信息
+                    desc, truncated = describe_image(CFG.get("glm", {}), f.filename, data)
+                    text = "（以下为图片识别结果）\n" + desc
+                else:
+                    text, truncated = extract_text(f.filename, data)
             except ValueError as e:
                 text, truncated = f"(无法解析该文件：{e})", False
             except Exception as e:  # noqa: BLE001

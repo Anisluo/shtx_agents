@@ -6,6 +6,9 @@
     // 注意：使用 GLM Coding Plan 的 Key 时，chat_path 需用下面的 coding 接口
     "api_key": "YOUR_GLM_API_KEY_HERE",
     "model": "glm-5.3",
+    // 对话中上传图片时用于识别的视觉模型（glm-5.3 不支持图片，故由视觉模型做图片->文本）
+    // 可选 glm-4v-flash(更快更省) 或 glm-4.5v(更强)
+    "vision_model": "glm-4v-flash",
     "base_url": "https://open.bigmodel.cn",
     "chat_path": "/api/coding/paas/v4/chat/completions",
     "temperature": 0.3,
